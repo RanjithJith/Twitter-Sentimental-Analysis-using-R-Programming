@@ -1,0 +1,302 @@
+---
+title: "Untitled"
+author: "Ranjith G"
+date: "6 May 2019"
+output:
+  word_document: default
+  pdf_document: default
+---
+```{r}
+library(rjson)
+library(bit64)
+library(httr)
+library(devtools)
+
+library(twitteR)
+library(tidyverse)
+
+library(tm)
+library(lexicon)
+library(syuzhet)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(dplyr)
+library(wordcloud)
+```
+
+
+```{r}
+api_key<- "dQ68PceTqWtzBtx1lmLZdRIrh"
+api_secret<- "3qowi6iEPuy3YOGTt0618KO8iZFGoJIol2a4flGHWa1Tbqs74S"
+access_token<- "1274329567-iP09cKiCTcvC4hzS8S6NvInghop8lHOKbN5VVBj"
+access_token_secret<- "tnObWgn0R72vObdU0Ai6SXP4avviGjDWXKr8gQ0uT9lxj"
+setup_twitter_oauth(api_key,
+                    api_secret,
+                    access_token,
+                    access_token_secret)
+
+```
+```{r}
+rm(api_key)
+rm(api_secret)
+rm(access_token)
+rm(access_token_secret)
+```
+
+```{r} 
+ev=  searchTwitter("ev",since='2016-01-01',n=2000, lang="en")
+length(ev)
+evexp =  searchTwitter("electric vehicle tata",since='2016-01-01',n=2000, lang="en")
+evtata= searchTwitter("electric vehicle Tata",since='2016-01-01', n=2000, lang="en")
+length(evtata)
+evhero = searchTwitter("electric vehicle hero",since='2016-01-01', n=2000, lang="en")
+evmah<-searchTwitter("ev mahindra",since='2016-01-01', n=2000, lang="en")
+evi=  searchTwitter("India ev ",since='2016-01-01',n=2000, lang="en")
+```
+
+```{r}
+tatatw<-sapply(evtata, function(x) x$getText())
+herotw<-sapply(evhero, function(x) x$getText())
+evtw<-sapply(ev, function(x) x$getText())
+mahtw<-sapply(evmah, function(x) x$getText())
+evitw<-sapply(evi, function(x) x$getText())
+
+
+catch.error = function(x)
+{
+  y = NA
+  catch_error = tryCatch(tolower(x), error=function(e) e)
+  if (!inherits(catch_error, "error"))
+    y = tolower(x)
+  return(y)
+}
+
+cleanTweets<- function(tweet){
+  # Clean the tweet for sentiment analysis
+  #  remove html links, which are not required for sentiment analysis
+  tweet = gsub("(f|ht)(tp)(s?)(://)(.*)[.|/](.*)", " ", tweet)
+  # First we will remove retweet entities from the stored tweets (text)
+  tweet = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", " ", tweet)
+  # Then remove all "#Hashtag"
+  tweet = gsub("#\\w+", " ", tweet)
+  # Then remove all "@people"
+  tweet = gsub("\\b\\w{1,4}\\s"," ",tweet)
+  tweet = gsub("; "," ",tweet)
+  tweet = gsub("u+"," ",tweet)
+  tweet = gsub("@\\w+", " ", tweet)
+  # Then remove all the punctuation
+   tweet = gsub("[[:punct:]]", " ", tweet)
+  # Then remove numbers, we need only text for analytics
+  tweet = gsub("[[:digit:]]", " ", tweet)
+  # finally, we remove unnecessary spaces (white spaces, tabs etc)
+  tweet = gsub("[ \t]{2,}", " ", tweet)
+  tweet = gsub("\n\n"," ",tweet)
+  tweet = gsub("^\\s+|\\s+$", "", tweet)
+  # if anything else, you feel, should be removed, you can. For example "slang words" etc using the above function and methods.
+  # Next we'll convert all the word in lower case. This makes uniform pattern.
+  tweet = catch.error(tweet)
+  tweet
+}
+```
+
+```{r}
+
+cleanTweetsAndRemoveNAs<- function(Tweets) {
+  TweetsCleaned = sapply(Tweets, cleanTweets)
+  # Remove the "NA" tweets from this tweet list
+  TweetsCleaned = TweetsCleaned[!is.na(TweetsCleaned)]
+  names(TweetsCleaned) = NULL
+  # Remove the repetitive tweets from this tweet list
+  TweetsCleaned = unique(TweetsCleaned)
+  TweetsCleaned
+}
+```
+
+```{r}
+tatatwCleaned = cleanTweetsAndRemoveNAs(tatatw)
+herotwCleaned = cleanTweetsAndRemoveNAs(herotw)
+mahtwCleaned <- cleanTweetsAndRemoveNAs(mahtw)
+Indiatwcleaned= cleanTweetsAndRemoveNAs(evitw)
+evitwcleaned= cleanTweetsAndRemoveNAs(evtw)
+length(evtw)
+```
+
+
+```{r}
+tata1<-Corpus(VectorSource(tatatwCleaned))
+corpusevi <- iconv(evitwcleaned, to = "utf-8")
+
+corpusevi1<-Corpus(VectorSource(evitwcleaned))
+evi1<-Corpus(VectorSource(corpusevi1))
+evicorpus<- tm_map(evi1, tolower)
+
+mah1<-Corpus(VectorSource(mahtwCleaned))
+
+
+
+corpusIndia<-Corpus(VectorSource(Indiatwcleaned))
+India1<-Corpus(VectorSource(corpusIndia))
+Indiacorpus<- tm_map(India1, tolower)
+```
+```{r}
+#to remove stop words
+evi <- tm_map(evi1, removeWords, stopwords('english'))
+eviplot <- tm_map(evicorpus, removeWords, stopwords('english'))
+mah <- tm_map(mah1, removeWords, stopwords('english'))
+tata <- tm_map(tata1, removeWords, stopwords('english'))
+India <- tm_map(India1, removeWords, stopwords('english'))
+```
+
+#TATA WORDCLOUD
+```{r}
+tatacloud<-wordcloud(tata,min.freq = 2,
+                     colors=brewer.pal(8, "Dark2"),
+                     scale = c(4,0.3),
+                     random.color = TRUE,max.words = 500)
+```
+
+#TATA BARPLOT
+```{r}
+
+tatastring=toString(tata)
+
+sentitata <- get_nrc_sentiment(tatastring)
+
+
+barplot(colSums(sentitata),
+        las = 2,
+        col = rainbow(10),
+        ylab = 'Count',
+        main = 'Sentiment Scores for TATA Tweets')
+```
+#words Repetative in tata tweets
+```{r}
+wordtata<-TermDocumentMatrix(tata)
+wordtata<- as.matrix(wordtata)
+# Bar plot
+w <- rowSums(wordtata)
+w <- subset(w, w<=25)
+barplot(w,
+        las = 2,
+        col = rainbow(50))
+```
+
+
+
+# MAHINDERA wORD CLOUD
+```{r}
+
+mahcloud<-wordcloud(mah,min.freq = 2,
+                    colors=brewer.pal(8, "Dark2"),
+                    scale = c(4,0.3),
+                    random.color = TRUE,max.words = 500)
+```
+
+#MAHINDERA BAR PLOT
+```{r}
+
+mahstring=toString(mah)
+
+sentimah <- get_nrc_sentiment(mahstring)
+
+
+barplot(colSums(sentimah),
+        las = 2,
+        col = rainbow(10),
+        ylab = 'Count',
+        main = 'Sentiment Scores for Mahindra Tweets')
+```
+#words Repetative in Mahindra tweets
+```{r}
+wordmah<-TermDocumentMatrix(mah)
+wordmah<- as.matrix(wordmah)
+# Bar plot
+m <- rowSums(wordmah)
+m <- subset(m, m<=25)
+barplot(m,
+        las = 2,
+        col = rainbow(50))
+```
+
+
+
+#INDIA TWEET WORD CLOUD
+```{r}
+
+Indiacloud<-wordcloud(India,min.freq = 2,
+                      colors=brewer.pal(8, "Dark2"),
+                      scale = c(4,0.3),
+                      random.color = TRUE,max.words = 500)
+```
+#INDIA TWEET BAR PLOT
+```{r}
+
+Indiastring=toString(India)
+
+sentiIndia <- get_nrc_sentiment(Indiastring)
+
+
+barplot(colSums(sentiIndia),
+        las = 2,
+        col = rainbow(10),
+        ylab = 'Count',
+        main = 'Sentiment Scores for India Tweets')
+```
+#words Repetative in India tweets
+```{r}
+wordIndia<-TermDocumentMatrix(India)
+wordIndia<- as.matrix(wordIndia)
+# Bar plot
+I <- rowSums(wordIndia)
+I <- subset(I, I<=25)
+barplot(I,
+        las = 1,
+        col = rainbow(50))
+```
+
+# TOTAL EV TWEET WORD CLOUD
+```{r}
+evinew <- read.csv("file:///C:/Users/RANJIT/Documents/evfile.csv", header = T)
+evicloud<-wordcloud(evinew$text,min.freq = 2,
+                    colors=brewer.pal(8, "Dark2"),
+                    scale = c(4,0.3),
+                    random.color = TRUE,max.words = 500)
+evicloud<-wordcloud(eviplot,min.freq = 2,
+                      colors=brewer.pal(8, "Dark2"),
+                      scale = c(4,0.3),
+                      random.color = TRUE,max.words = 500)
+```
+
+#TOTAL EV TWEET BAR PLOT
+```{r}
+
+n=toString(evinew$text)
+# Obtain sentiment scores
+s <- get_nrc_sentiment(n)
+head(s)
+
+
+# Bar plot
+barplot(colSums(s),
+        las = 2,
+        col = rainbow(10),
+        ylab = 'Count',
+        main = 'Sentiment Scores for EV Tweets')
+```
+#words Repetative in EV Total tweets
+```{r}
+wordevi<-TermDocumentMatrix(evi)
+wordevi<- as.matrix(wordevi)
+# Bar plot
+e <- rowSums(wordevi)
+e <- subset(e, e<=25)
+barplot(e, las = 1,
+        col = rainbow(50))
+```
+
+
+
+
+
+
